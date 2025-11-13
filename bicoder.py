@@ -7,7 +7,13 @@ from tensorflow.keras.models import Sequential
 import numpy as np
 
 '''
+- Change the get_output methods to call to work better in vae (called the direct way as Rogelio explained)
+- decoder should return log_std already
+
+
 Should the outputs (mu, log_var, z, idk) be instance variables??? Let's see how it works with VAE
+Nope but the network as the model should be instance variable cause that is what should be kept stable through the process like the 
+VAE has 1 encoder and 1 decoder and they are each a single neural network that is fixed/stable idk just the input/output changes
 
 How I wnat this to work -> color_encoder will have its own object instance Encoder(color), color decoder too Dceoder(color), 
 and then bw will have its own instances Encoder(bw) and Decoder(bw). 
@@ -237,11 +243,11 @@ class Decoder(BiCoder):
     def get_network_output(self, x):
         decoder = super().make_neural_network()
         mu = decoder(x)
-        return mu
+        std = 0.75  # keep hard coded here since it is part of the assignment and should't rly be changed under any circumstances so no reaosn to allow inputing it or anything
+        return mu, std
 
     # sample random x from the posterior here while just get_network_output returns the expectation -> mean (I think that's what Rogelio said?) -> test in VAE downstream tasks
-    def get_x(self, mu):
-        std = 0.75  # keep hard coded here since it is part of the assignment and should't rly be changed under any circumstances so no reaosn to allow inputing it or anything
+    def get_x(self, mu, std):
         eps = tf.random.normal(mu.shape)
         x = mu + eps*std
         return x

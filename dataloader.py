@@ -1,8 +1,16 @@
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 import wget
 import numpy as np
-import os
 
+
+
+'''
+
+Need to redo the download -> use system wget, not package, and then serach syntax for subprocess.run 
+
+'''
 
 class DataLoader:
 
@@ -83,3 +91,6 @@ class BW_DataLoader(DataLoader):
 # mnist_bw_labels = labels_dataloader.load_data('https://www.dropbox.com/scl/fi/8kmcsy9otcxg8dbi5cqd4/mnist_bw_y_te.npy?rlkey=atou1x07fnna5sgu6vrrgt9j1&st=m05mfkwb&dl=0')
 # print(mnist_bw_labels.element_spec)
 
+bw_dataloader = BW_DataLoader()
+mnist_bw_test = bw_dataloader.download('https://drive.google.com/file/d/12Y99t8MO7w8v2P7mZStMAae2X2i6l-e1/view?usp=sharing')
+print(mnist_bw_test)
