@@ -7,9 +7,12 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
 # import BiCoder stuff
 
 '''
-but all the outputs (mu, log_var, z...) will be instance variables here for sure but idk if also in bicoder, 
-maybe not even here??? gotta think abt this a bit more how it works with the train
 
+1 VAE instance = 1 encoder/decoder object instance that stable -> has the same input params and same neural network -> create encoder, decoder in constructor?
+
+
+
+need to construct the encoder/decoder in constructor of vae?
 
 
 Methods:
@@ -29,16 +32,27 @@ Methods:
 
 class VAE(tf.keras.Model):
 
-    def __init__(self):
+    # need all the encoder/decoder params to be inputted here too
+    def __init__(self, img_type, latent_dim = None, units = None, activation = 'relu',  # BiCoder params
+                input_shape = None,                                                     # extra Encoder params
+                output_dim = 28*28, target_shape = (4,4,128), channel_out = 3,          # extra Decoder params
+                kernel_size = 3, strides = 2, filters = 32):                            # optional BiCoder params only for color (but no * cause everything before this "required" for VAE)
 
         # tf.keras.Model constructor so that VAE can inherit from there
         super().__init__()
+
+        # create encoder and decoder objects -> stable over life of VAE instance
+        self.encoder = Encoder(img_type, latent_dim , units, activation, input_shape,
+                                kernel_size = kernel_size, strides = strides, filters = filters)
+        self.decoder = Decoder(img_type, latent_dim, units, activation, output_dim, target_shape, channel_out, 
+                                kernel_size = kernel_size, strides = strides, filters = filters)
+
 
     # mu and log_var from encoder
     def kl_divergence(self, mu, log_var):
         return 0.5 * tf.reduce_sum(tf.square(mu) + tf.exp(log_var) - log_var - 1, axis=-1) 
 
-    # mu, log_sigma from decoder, but our sigma fixed so gotta take log 1st (maybe output log_sigma already from decoder? wouldn't that be how the output is if actually trained?) 
+    # mu, log_sigma from decoder
     def log_diag_mvn(self, x, mu, log_sigma):
         sum_axes = tf.range(1, tf.rank(mu))
         k = tf.cast(tf.reduce_prod(tf.shape(mu)[1:]), x.dtype)
@@ -48,19 +62,19 @@ class VAE(tf.keras.Model):
         return logp
 
     # should return loss based on Rogelio's train?
-    # if I chnage the bicoder methods to call then I can just dircetly use it as decoder(x) etc -> implement in bicoder and then change here too
     def call(self, x):
-        mu, log_var = encoder.get_network_output(x)
-        z = encoder.calculate_z(mu, log_var)
-        mu_of_x, std = decoder.get_network_output(z)
-        kl_div = self.kl_divergence(mu, log_var)
-        log_diag_mnv = self.log_diag_mvn(x, mu, log_sigma)
+        encoder_mu, log_var = self.encoder(x)
+        z = self.encoder.calculate_z(encoder_mu, log_var)
+        decoder_mu, log_sigma = self.decoder(z)
+        kl_div = self.kl_divergence(encoder_mu, log_var)
+        log_diag_mnv = self.log_diag_mvn(x, decoder_mu, log_sigma)
         elbo = log_diag_mnv - kl_div
         loss = - elbo
         return loss
     
     # here the returned loss is for monitoring of the training (how many epochs u need) -> from Rogelio
     # but also vae should have instance variable vae_loss I guess
+    # can use decorator here to log the loss?
     @tf.function 
     def train(self, x):
         with tf.GradientTape() as tape:
@@ -70,8 +84,27 @@ class VAE(tf.keras.Model):
 
         return loss
 
+    def generate_latent_space_z(self):
+        '''
+        Visualize the z from encoder
+
+        call the whole thing here or just the z but then encoder_mu and log_var must be instance varoables I geuss   
+        '''
+        encoder_mu, log_var = self.encoder(x)
+        z = self.encoder.calculate_z(encoder_mu, log_var)     
+
+    def generate_new_images_from_prior(self):
+        '''
+        prior is isotropic Gaussian dist N(0, I) so we sample z from this
+        and then use this z in decoder(z)
+        
+        '''
 
     def generate_new_images_from_posterior(self):
         '''
-        x = decoder.get_x(mu_of_x)
+        here we use the actual z from encoder
+        random sampling -> x = decoder.get_x(mu_of_x)
+        expectation sampling -> mu_of_x
+        have some if/else for this and some input param that tells u which one
+
         '''
