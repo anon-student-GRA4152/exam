@@ -7,16 +7,12 @@ from tensorflow.keras.models import Sequential
 import numpy as np
 
 '''
-- Change the get_output methods to call to work better in vae (called the direct way as Rogelio explained)
-- decoder should return log_std already
 
+decorator to log the model params instead a separate method?
 
-Should the outputs (mu, log_var, z, idk) be instance variables??? Let's see how it works with VAE
-Nope but the network as the model should be instance variable cause that is what should be kept stable through the process like the 
-VAE has 1 encoder and 1 decoder and they are each a single neural network that is fixed/stable idk just the input/output changes
+1 decoder/encoder instance should have 1 stable neural network model -> add instance varoable neural_network or smth that 
+will keep track of this but also make_neual network should then be called in constructor? is that legal?
 
-How I wnat this to work -> color_encoder will have its own object instance Encoder(color), color decoder too Dceoder(color), 
-and then bw will have its own instances Encoder(bw) and Decoder(bw). 
 
 methods both encoder, decoder -> Bicoder methods
     - _make_neural_network_color -> abstract
@@ -95,16 +91,18 @@ class BiCoder(layers.Layer):
             self._strides =  strides
             self._filters = filters
 
+        # one instance of encoder/decoder should have a stable neural network made just once
+        self._neural_network = self.make_neural_network()
 
     # the neural network should be made depending on type
     def make_neural_network(self):
         if self._img_type == 'bw':
-            bicoder = self._make_neural_network_BW()
+            neural_network = self._make_neural_network_BW()
 
         elif self._img_type == 'color':
-            bicoder = self._make_neural_network_COLOR()
+            neural_network = self._make_neural_network_COLOR()
     
-        return bicoder
+        return neural_network
 
     # abstract method
     def _make_neural_network_BW(self):
@@ -115,7 +113,7 @@ class BiCoder(layers.Layer):
         raise NotImplementedError
     
     # abstract method
-    def get_network_output(self):
+    def call(self):
         raise NotImplementedError
 
     def get_network_configuration(self):
@@ -126,16 +124,16 @@ class Encoder(BiCoder):
     def __init__(self, img_type, latent_dim = None, units = None, activation = 'relu',  # BiCoder input params
                 input_shape = None,                                                     # extra input param for Encoder
                 *, kernel_size = 3, strides = 2, filters = 32):                         # optional BiCoder input params only for color
-        
-        # def the superclass inistance variables
+    
+        # def extra encoder instance variable and set default based on img_type
+        if img_type == 'bw':
+            self._input_shape = (28*28,) if input_shape is None else input_shape
+        elif img_type == 'color':
+            self._input_shape = (28,28,3) if input_shape is None else input_shape
+
+        # needs to be after I def the extra variables since superclass constructor calls make_neural_network which needs all the params
         super().__init__(img_type, latent_dim, units, activation,
                         kernel_size = kernel_size, strides = strides, filters = filters)
-
-        # def extra encoder instance variable and set default based on img_type
-        if self._img_type == 'bw':
-            self._input_shape = (28*28,) if input_shape is None else input_shape
-        elif self._img_type == 'color':
-            self._input_shape = (28,28,3) if input_shape is None else input_shape
             
 
     def _make_neural_network_BW(self):
@@ -166,8 +164,8 @@ class Encoder(BiCoder):
         
         return encoder_COLOR
 
-    def get_network_output(self, x):
-        encoder = super().make_neural_network()
+    def call(self, x):
+        encoder = self._neural_network
         out = encoder(x)
         mu = out[:,:self._latent_dim]
         log_var = out[:,self._latent_dim:]
@@ -191,18 +189,19 @@ class Decoder(BiCoder):
                 target_shape = (4,4,128), channel_out = 3,                               # color extra Decoder params with defaults
                 *, kernel_size = 3, strides = 2, filters = 32):                          # optional BiCoder input params only for color
         
-        # def the superclass instance variables
-        super().__init__(img_type, latent_dim,  units, activation,
-                        kernel_size = kernel_size, strides = strides, filters = filters)
-
         # def instance variable output_dim only img_type == bw param, otherwise disregard
-        if self._img_type == 'bw':
+        if img_type == 'bw':
             self._output_dim = output_dim
 
         # def these 2 extra instance variables only for img_type = color so make them instance varibales only in that case
-        if self._img_type == 'color':
+        elif img_type == 'color':
             self._target_shape = target_shape
             self._channel_out = channel_out
+
+        # needs to be after I def the extra variables since superclass constructor calls make_neural_network which needs all the params
+        super().__init__(img_type, latent_dim,  units, activation,
+                        kernel_size = kernel_size, strides = strides, filters = filters)
+
 
     
     def _make_neural_network_BW(self):
@@ -240,11 +239,13 @@ class Decoder(BiCoder):
         
         return decoder_COLOR
 
-    def get_network_output(self, x):
-        decoder = super().make_neural_network()
+    # I keep return to be mu an dlog_sigma here as it would be if we were also training std so that later when we call it it's more in line with "standard" (training std)
+    def call(self, x):
+        decoder = self._neural_network
         mu = decoder(x)
         std = 0.75  # keep hard coded here since it is part of the assignment and should't rly be changed under any circumstances so no reaosn to allow inputing it or anything
-        return mu, std
+        log_sigma = np.log(std)
+        return mu, log_sigma
 
     # sample random x from the posterior here while just get_network_output returns the expectation -> mean (I think that's what Rogelio said?) -> test in VAE downstream tasks
     def get_x(self, mu, std):
@@ -259,5 +260,9 @@ class Decoder(BiCoder):
 
 
 # bw_encoder = Encoder('bw')
-# mu, log_var = bw_encoder.get_network_output(tf.random.normal((4, 28*28)) )
-# print(bw_encoder.calculate_z(mu, log_var))
+# mu, log_var = bw_encoder(tf.random.normal((4, 28*28)))
+# z = bw_encoder.calculate_z(mu, log_var)
+
+# bw_decoder = Decoder('bw')
+# mu, log_sigma = bw_decoder(z)
+# print(mu, log_sigma)
