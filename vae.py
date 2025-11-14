@@ -1,17 +1,14 @@
 import tensorflow as tf
 import numpy as np
 
-optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4) 
-
-
 from bicoder import Encoder, Decoder
 
 '''
 
+Add decorator to log loss -> then vae_loss instance variable too makes sense maybe?
+
 maybe chnage the img_type variable from 'bw' vs 'color' to the file names? so that with 1 command easy to pass in what file u wanna use idk
 or extract the bw vs color form the file name in train file?
-
-sample x need std not log -> fix
 
 
 Methods:
@@ -22,8 +19,6 @@ Methods:
     - generate latent space
     - sample from prior
     - sample from posterior
-
-
 
 '''
 
@@ -60,7 +55,6 @@ class VAE(tf.keras.Model):
                 - 0.5*tf.reduce_sum(tf.square(x - mu)/tf.math.exp(2.*log_sigma),axis=sum_axes)
         return logp
 
-    # should return loss based on Rogelio's train?
     def call(self, x):
         encoder_mu, log_var = self.encoder(x)
         z = self.encoder.calculate_z(encoder_mu, log_var)
@@ -75,10 +69,10 @@ class VAE(tf.keras.Model):
     # but also vae should have instance variable vae_loss I guess
     # can use decorator here to log the loss?
     @tf.function 
-    def train(self, x):
+    def train(self, x, optimizer):
         with tf.GradientTape() as tape:
             loss = self.call(x)
-        gradients = tape.gradient(self.vae_loss, self.trainable_variables)
+        gradients = tape.gradient(loss, self.trainable_variables)
         optimizer.apply_gradients(zip(gradients, self.trainable_variables))
 
         return loss
@@ -105,7 +99,6 @@ class VAE(tf.keras.Model):
 
         decoder_mu, log_sigma = self.decoder(z)
 
-        # here it should be just std not log tho -> fix
         if random_sampling:
             return self.decoder.get_x(decoder_mu, log_sigma)
         
@@ -121,14 +114,12 @@ class VAE(tf.keras.Model):
         here we use the actual z from encoder
         random sampling -> x = decoder.get_x(mu_of_x)
         expectation sampling -> mu_of_x
-        have some if/else for this and some input param that tells u which one
 
         '''
         encoder_mu, log_var = self.encoder(x)
         z = self.encoder.calculate_z(encoder_mu, log_var) 
         decoder_mu, log_sigma = self.decoder(z)
 
-        # here it should be just std not log tho -> fix
         if random_sampling:
             return self.decoder.get_x(decoder_mu, log_sigma)
         

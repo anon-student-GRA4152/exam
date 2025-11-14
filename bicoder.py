@@ -10,9 +10,6 @@ import numpy as np
 
 decorator to log the model params instead a separate method?
 
-1 decoder/encoder instance should have 1 stable neural network model -> add instance varoable neural_network or smth that 
-will keep track of this but also make_neual network should then be called in constructor? is that legal?
-
 
 methods both encoder, decoder -> Bicoder methods
     - _make_neural_network_color -> abstract
@@ -248,7 +245,8 @@ class Decoder(BiCoder):
         return mu, log_sigma
 
     # sample random x from the posterior here while just get_network_output returns the expectation -> mean (I think that's what Rogelio said?) -> test in VAE downstream tasks
-    def get_x(self, mu, std):
+    def get_x(self, mu, log_sigma):
+        std = np.exp(log_sigma)     # have to change back to sigma not log
         eps = tf.random.normal(mu.shape)
         x = mu + eps*std
         return x
