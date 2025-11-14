@@ -1,15 +1,11 @@
 import os
+import subprocess
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
-import wget
 import numpy as np
 
-
-
 '''
-
-Need to redo the download -> use system wget, not package, and then serach syntax for subprocess.run 
-
+Add som etry, except or smth for the downlaod
 '''
 
 class DataLoader:
@@ -23,8 +19,10 @@ class DataLoader:
         if os.path.exists(file_name):
             print('File {} has already been downloaded. The existing version will be used. If you want to redownload the file, you first need to delete the preexisting one.'.format(file_name))
             return file_name
-        else:
-            return wget.download(url)
+        
+        subprocess.run(['wget', '-O', file_name, url])
+
+        return file_name
 
     # min implementation common across all subclasses -> load file, will be extended for subclasses to do the necessary preprocessing steps
     def prep_data(self, data_file):
@@ -90,7 +88,3 @@ class BW_DataLoader(DataLoader):
 # labels_dataloader = DataLoader()
 # mnist_bw_labels = labels_dataloader.load_data('https://www.dropbox.com/scl/fi/8kmcsy9otcxg8dbi5cqd4/mnist_bw_y_te.npy?rlkey=atou1x07fnna5sgu6vrrgt9j1&st=m05mfkwb&dl=0')
 # print(mnist_bw_labels.element_spec)
-
-bw_dataloader = BW_DataLoader()
-mnist_bw_test = bw_dataloader.download('https://drive.google.com/file/d/12Y99t8MO7w8v2P7mZStMAae2X2i6l-e1/view?usp=sharing')
-print(mnist_bw_test)
