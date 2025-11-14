@@ -4,15 +4,14 @@ import numpy as np
 optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4) 
 
 
-# import BiCoder stuff
+from bicoder import Encoder, Decoder
 
 '''
 
-1 VAE instance = 1 encoder/decoder object instance that stable -> has the same input params and same neural network -> create encoder, decoder in constructor?
+maybe chnage the img_type variable from 'bw' vs 'color' to the file names? so that with 1 command easy to pass in what file u wanna use idk
+or extract the bw vs color form the file name in train file?
 
-
-
-need to construct the encoder/decoder in constructor of vae?
+sample x need std not log -> fix
 
 
 Methods:
@@ -49,11 +48,11 @@ class VAE(tf.keras.Model):
 
 
     # mu and log_var from encoder
-    def kl_divergence(self, mu, log_var):
+    def _kl_divergence(self, mu, log_var):
         return 0.5 * tf.reduce_sum(tf.square(mu) + tf.exp(log_var) - log_var - 1, axis=-1) 
 
     # mu, log_sigma from decoder
-    def log_diag_mvn(self, x, mu, log_sigma):
+    def _log_diag_mvn(self, x, mu, log_sigma):
         sum_axes = tf.range(1, tf.rank(mu))
         k = tf.cast(tf.reduce_prod(tf.shape(mu)[1:]), x.dtype)
         logp =  - 0.5 * k * tf.math.log(2*np.pi) \
@@ -66,8 +65,8 @@ class VAE(tf.keras.Model):
         encoder_mu, log_var = self.encoder(x)
         z = self.encoder.calculate_z(encoder_mu, log_var)
         decoder_mu, log_sigma = self.decoder(z)
-        kl_div = self.kl_divergence(encoder_mu, log_var)
-        log_diag_mnv = self.log_diag_mvn(x, decoder_mu, log_sigma)
+        kl_div = self._kl_divergence(encoder_mu, log_var)
+        log_diag_mnv = self._log_diag_mvn(x, decoder_mu, log_sigma)
         elbo = log_diag_mnv - kl_div
         loss = - elbo
         return loss
@@ -84,23 +83,40 @@ class VAE(tf.keras.Model):
 
         return loss
 
-    def generate_latent_space_z(self):
+    def generate_latent_space_z(self, x):
         '''
         Visualize the z from encoder
 
-        call the whole thing here or just the z but then encoder_mu and log_var must be instance varoables I geuss   
         '''
         encoder_mu, log_var = self.encoder(x)
-        z = self.encoder.calculate_z(encoder_mu, log_var)     
+        z = self.encoder.calculate_z(encoder_mu, log_var)  
+        return z
 
-    def generate_new_images_from_prior(self):
+    def generate_new_images_from_prior(self, number_of_images = 10_000, random_sampling = False):
         '''
         prior is isotropic Gaussian dist N(0, I) so we sample z from this
         and then use this z in decoder(z)
+
+        Use 10K as default for number of images cause the test data sets have 10K images
         
         '''
+        # the latent_dim must match my usual image vector size so that encoder works (it's set up for that size) 
+        z = tf.random.normal(number_of_images, self.encoder._latent_dim)
 
-    def generate_new_images_from_posterior(self):
+        decoder_mu, log_sigma = self.decoder(z)
+
+        # here it should be just std not log tho -> fix
+        if random_sampling:
+            return self.decoder.get_x(decoder_mu, log_sigma)
+        
+        # want the expectation for sharper image == default
+        else:
+            return decoder_mu
+
+
+
+
+    def generate_new_images_from_posterior(self, x, random_sampling = False):
         '''
         here we use the actual z from encoder
         random sampling -> x = decoder.get_x(mu_of_x)
@@ -108,3 +124,15 @@ class VAE(tf.keras.Model):
         have some if/else for this and some input param that tells u which one
 
         '''
+        encoder_mu, log_var = self.encoder(x)
+        z = self.encoder.calculate_z(encoder_mu, log_var) 
+        decoder_mu, log_sigma = self.decoder(z)
+
+        # here it should be just std not log tho -> fix
+        if random_sampling:
+            return self.decoder.get_x(decoder_mu, log_sigma)
+        
+        # want the expectation for sharper image == default
+        else:
+            return decoder_mu
+
