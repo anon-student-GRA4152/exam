@@ -5,41 +5,56 @@ import tensorflow as tf
 import numpy as np
 
 '''
-Add som etry, except or smth for the downlaod
+
+change the architecture to be more similar to bicoder? with the img_type input?
+
 '''
+
+# -------------------------------------- superclass class DataLoader ------------------------------------------
 
 class DataLoader:
 
-    # use wget to download data from a given link, but 1st check whether it's already downloaded and then don't redownload, just return the already existing file name
+    # use wget to download data from a given link
+    # 1st check whether it's already downloaded and if yes don't redownload, just return already existing file name
     def download(self, url):
-        # there is always only 1 ? in the url, right after the file name so can just find the ? and extract everything before it and up until '/' using string operations
-        # extract everything before ? so the modified str will end with the file name, then split based on / and extract the last element -> file name
+        
+        # this might be a bit too specific, working only for this application 
+        # but here the pattern of the urls is always the same = .../file_name?... 
+        # so extract the file_name by splitting the string to keep only part between the only ? and the 1st / before that
         file_name = url.split('?')[0].split('/')[-1]
 
         if os.path.exists(file_name):
-            print('File {} has already been downloaded. The existing version will be used. If you want to redownload the file, you first need to delete the preexisting one.'.format(file_name))
+            print('File {} has already been downloaded. The existing version will be used. ' \
+            'If you want to redownload the file, you first need to delete the preexisting one.'.format(file_name))
             return file_name
         
         subprocess.run(['wget', '-O', file_name, url])
-
         return file_name
 
-    # min implementation common across all subclasses -> load file, will be extended for subclasses to do the necessary preprocessing steps
-    def prep_data(self, data_file):
-        # for the color data set I've got error saying Cannot load file containing pickled data when allow_pickle=False so I've set it to True
-        data = np.load(data_file, allow_pickle = True)
+    # min implementation common across all subclasses -> load file
+    # will be extended for subclasses to do the necessary preprocessing steps
+    def prep_data(self, file_name):
+
+        # allow_pickle = True since the color dataset threw err 'Cannot load file containing pickled data when allow_pickle=False' due to it being .pkl
+        data = np.load(file_name, allow_pickle = True)
+
+        # return data in normal np format so that this parent class DataLoader can be used for labels
+        # subclasses modify this and return the preprocessed data in the tf format they should be
         return data
 
-    # summary method -> download the data, preprocess and return in the final tf format
+    # summary method -> download the data, preprocess and return
     def load_data(self, url):
         data_file = self.download(url)
         preprocessed_data = self.prep_data(data_file)
-        return tf.data.Dataset.from_tensor_slices(preprocessed_data)
+        return preprocessed_data
+
+
+# -------------------------------- subclass class Color_DataLoader ----------------------------------------
 
 
 class Color_DataLoader(DataLoader):
 
-    # the color has instance variable for version, so that we can have multiple color object instances at once for different versions + easier implementation
+    # color has instance variable for version = can have multiple color dataloaders at once for different versions
     def __init__(self, version = 'm0'):
 
         # extra instance variable just for this subclass + active debugging of input
@@ -47,18 +62,22 @@ class Color_DataLoader(DataLoader):
         assert version in possible_versions, 'Color version you have picked is not valid. It must be one of the following options: {}'.format(possible_versions)
         self._key = version
 
-    # isolate only 1 of the 5 dictionaires using the key user chose, default = 'm0' version (specified above)
+    # isolate only 1 of the 5 dicts using the key user chose, default = 'm0' (specified in constructor)
     def prep_data(self, data_file):
         data = super().prep_data(data_file)
         preprocessed_data = data[self._key]
 
-        return preprocessed_data
+        # return preprocessed_data in the tf format 
+        return tf.data.Dataset.from_tensor_slices(preprocessed_data)
+
+
+# ----------------------------------- subclass class BW_DataLoader ------------------------------------
+
 
 class BW_DataLoader(DataLoader):
 
     # preprocessing: 1) scaling, 2) vectorization, incl check that input img dimension as expected (28x28)
     def prep_data(self, data_file):
-        
         data = super().prep_data(data_file)
 
         # data should have shape: (number of images, 28, 28) since image dimensions are supposed to be 28x28
@@ -74,17 +93,5 @@ class BW_DataLoader(DataLoader):
         img_number = data.shape[0]
         preprocessed_data = data.reshape(img_number, img_dimensions)
 
-        return preprocessed_data
-
-
-# color_dataloader = Color_DataLoader('m2')
-# mnist_color_train = color_dataloader.load_data('https://www.dropbox.com/scl/fi/w7hjg8ucehnjfv1re5wzm/mnist_color.pkl?rlkey=ya9cpgr2chxt017c4lg52yqs9&st=ev984mfc&dl=0')
-# print(mnist_color_train.element_spec)
-
-# bw_dataloader = BW_DataLoader()
-# mnist_bw_train = bw_dataloader.load_data('https://www.dropbox.com/scl/fi/fjye8km5530t9981ulrll/mnist_bw.npy?rlkey=ou7nt8t88wx1z38nodjjx6lch&st=5swdpnbr&dl=0')
-# print(mnist_bw_train.element_spec)
-
-# labels_dataloader = DataLoader()
-# mnist_bw_labels = labels_dataloader.load_data('https://www.dropbox.com/scl/fi/8kmcsy9otcxg8dbi5cqd4/mnist_bw_y_te.npy?rlkey=atou1x07fnna5sgu6vrrgt9j1&st=m05mfkwb&dl=0')
-# print(mnist_bw_labels.element_spec)
+        # return preprocessed_data in the tf format 
+        return tf.data.Dataset.from_tensor_slices(preprocessed_data)
