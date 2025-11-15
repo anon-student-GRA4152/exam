@@ -5,7 +5,7 @@ import argparse
 from mpl_toolkits.axes_grid1 import ImageGrid
 import matplotlib.pyplot as plt
 import numpy as np
-import sklearn.manifold.TSNE
+from sklearn.manifold import TSNE
 
 from vae import VAE
 from dataloader import DataLoader, BW_DataLoader, Color_DataLoader
@@ -13,6 +13,10 @@ from dataloader import DataLoader, BW_DataLoader, Color_DataLoader
 
 
 '''
+
+Could add check whether the visualizations already saved?
+Add decorator to log the training loss?
+Change the img_type input for all my classes to be mnist_bw vs mnist_color instead bw/color to be easier?
 
 - load data 
     - make some url-dataset mapping so that I can load the correct datasets (test, train, labels) by just passing in dataset name
@@ -42,7 +46,7 @@ def plot_grid(images, dataset_name, downstream_task, N=10, C=10, figsize=(24., 2
         ax.set_yticks([])
     
     plt.subplots_adjust(wspace=0, hspace=0)
-    plt.savefig(dataset_name + downstream_task + '.pdf')
+    plt.savefig(dataset_name + '-' + downstream_task + '.pdf')
     plt.close()
 
 # setup the parser
@@ -78,7 +82,7 @@ urls = datasets_urls[args.dset]
 if img_type == 'bw':
     data_loader = BW_DataLoader() 
 elif img_type == 'color':
-    data_loader = Color_DataLoader('m2')   # could add this as user input param for color or just varoable on top of this file idk yet
+    data_loader = Color_DataLoader('m0')   # could add this as user input param for color or just varoable on top of this file idk yet
 
 # construct data loader for labels
 labels_data_loader = DataLoader()
@@ -95,20 +99,22 @@ vae = VAE(img_type)
 
 # 1. Train the VAE model
 optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4) 
-batch_size = 128
+batch_size = 100
 
 for epoch in range(args.epochs):
     for batch_x in x_train.batch(batch_size):
         vae.train(batch_x, optimizer)
-
 
 # ---------- downstream tasks based on what the user picked: ------------
 
 # 2. Generate and visualize the latent space z
 if args.visualize_latent:
     
+    # fixing the Inputs to a layer should be tensors error
+    x_test_array = np.array(list(x_test.as_numpy_iterator()))
+
     # generate z
-    z = vae.generate_latent_space_z(x_test)
+    z = vae.generate_latent_space_z(x_test_array)
 
     # reduce z to 2D (for scatter) using TSNE
     tsne = TSNE(n_components = 2)
@@ -116,8 +122,8 @@ if args.visualize_latent:
 
     # plot 2D z as scatterplot, using the labels to color the scatters
     fig = plt.figure(figsize=(24., 28.))
-    scatter = plt.scatter(z_2d[:, 0], z_2d[:, 1], c = labels)
-    plt.savefig(args.dset + 'generate_latent_space_z' + '.pdf')
+    scatter = plt.scatter(z_2d[:, 0], z_2d[:, 1], c = labels, cmap = 'tab10')
+    plt.savefig(args.dset + '-generate_latent_space_z' + '.pdf')
     plt.close()
 
 
@@ -131,6 +137,10 @@ if args.generate_from_prior:
     # need to use the clipping as Rogelio said
     img = tf.clip_by_value(255*x_hat, clip_value_min=0, clip_value_max=255).numpy().astype(np.uint8)
 
+    # fixing the shape error for bw cause we have flattened it to be only vector and now need to make it a 28*28 picture again
+    if img_type == 'bw':
+        img = img.reshape(-1, 28, 28)
+
     plot_grid(img, args.dset, 'prior')
 
 
@@ -140,17 +150,19 @@ if args.generate_from_posterior:
 
     # maybe add generating only 100 images cause that's what I'm gonna plot anyways?
 
+    # fixing the Inputs to a layer should be tensors error
+    x_test_array = np.array(list(x_test.as_numpy_iterator()))
+
     # as a default we sample the mu of x for clearer pictures (random_sampling = False)
-    x_hat = vae.generate_new_images_from_posterior(x_test, random_sampling = False)
+    x_hat = vae.generate_new_images_from_posterior(x_test_array, random_sampling = False)
 
     # need to use the clipping as Rogelio said
     img = tf.clip_by_value(255*x_hat, clip_value_min=0, clip_value_max=255).numpy().astype(np.uint8)
 
+    # fixing the shape error for bw cause we have flattened it to be only vector and now need to make it a 28*28 picture again
+    if img_type == 'bw':
+        img = img.reshape(-1, 28, 28)
+    
     plot_grid(img, args.dset, 'posterior')
-
-
-
-
-
 
 
