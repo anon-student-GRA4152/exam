@@ -3,13 +3,9 @@ import numpy as np
 
 from bicoder import Encoder, Decoder
 
+from training_logging import LogTraining
+
 '''
-
-Add decorator to log loss -> then vae_loss instance variable too makes sense maybe?
-
-maybe chnage the img_type variable from 'bw' vs 'color' to the file names? so that with 1 command easy to pass in what file u wanna use idk
-or extract the bw vs color form the file name in train file?
-
 
 Methods:
     - call -> input only data
@@ -65,10 +61,9 @@ class VAE(tf.keras.Model):
         loss = - elbo
         return loss
     
-    # here the returned loss is for monitoring of the training (how many epochs u need) -> from Rogelio
-    # but also vae should have instance variable vae_loss I guess
-    # can use decorator here to log the loss?
-    @tf.function 
+    # here the returned loss is for monitoring of the training (how many epochs u need)
+    @tf.function    # we use our custom decorator to log training loss
+    @LogTraining
     def train(self, x, optimizer):
         with tf.GradientTape() as tape:
             loss = self.call(x)
@@ -86,16 +81,17 @@ class VAE(tf.keras.Model):
         z = self.encoder.calculate_z(encoder_mu, log_var)  
         return z
 
-    def generate_new_images_from_prior(self, number_of_images = 10_000, random_sampling = False):
+    def generate_new_images_from_prior(self, number_of_images = 100, random_sampling = False):
         '''
         prior is isotropic Gaussian dist N(0, I) so we sample z from this
         and then use this z in decoder(z)
 
-        Use 10K as default for number of images cause the test data sets have 10K images
+        Use 100 as default for number of images cause ofc we nee dto visualize this and have a reasonable number
+        Rogelio used 10x10 for the grid function making it 100 images as default
         
         '''
         # the latent_dim must match my usual image vector size so that encoder works (it's set up for that size) 
-        z = tf.random.normal(number_of_images, self.encoder._latent_dim)
+        z = tf.random.normal((number_of_images, self.encoder._latent_dim))
 
         decoder_mu, log_sigma = self.decoder(z)
 
@@ -105,7 +101,6 @@ class VAE(tf.keras.Model):
         # want the expectation for sharper image == default
         else:
             return decoder_mu
-
 
 
 
