@@ -82,7 +82,3 @@ class BW_DataLoader(DataLoader):
 
         # return preprocessed_data in the tf format 
         return tf.data.Dataset.from_tensor_slices(preprocessed_data)
-    
-
-bw = BW_DataLoader()
-bw.help

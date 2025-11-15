@@ -92,7 +92,3 @@ class DataLoader:
         data_file = self.download(url)
         preprocessed_data = self.prep_data(data_file)
         return preprocessed_data
-    
-
-loader = DataLoader()
-loader.help

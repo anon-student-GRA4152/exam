@@ -78,6 +78,3 @@ class Color_DataLoader(DataLoader):
 
         # return preprocessed_data in the tf format 
         return tf.data.Dataset.from_tensor_slices(preprocessed_data)
-
-color = Color_DataLoader('m4')
-color.help
