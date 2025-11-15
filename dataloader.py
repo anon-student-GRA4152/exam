@@ -4,15 +4,59 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 import numpy as np
 
-'''
+import argparse
+import textwrap
+parser = argparse.ArgumentParser(prog='Superclass DataLoader',
+                                formatter_class=argparse.RawDescriptionHelpFormatter,
+                                description=textwrap.dedent('''\
+                                        Superclass Data Loader
+                                ----------------------------------------
+                                Data Loader that downloads datasets from online links,
+                                loads the data from their file and returns the prepared data. 
+                                Made particularly for the mnist datasets.
+                                                            
+                                Methods:
+                                1)  download: Extracts file name from the url, checks whether the file 
+                                    we are trying to download already exists and if it does, skipping 
+                                    redownloading again, returns the file name. If the file has not yet
+                                    been downloaded, downloads the file using wget and returns the file name.
+                                    @param url = the url we want to download the dataset from
+                                    @return the file name of the dataset we wanted to download
+                                                            
+                                2)  prep_data: Loads data from a file.
+                                    @param file_name = file name of where the data is stored
+                                    @return data from the file in numpy format
+                                                            
+                                3)  load_data: Summary method that first downloads the data from a url 
+                                    according to the download method (1) and then loads the downaloded
+                                    data according to prep_data (2).
+                                    @param url = the url we want to download the dataset from
+                                    @return downloaded data in numpy format  
+                                '''),
 
-change the architecture to be more similar to bicoder? with the img_type input?
+                                epilog=textwrap.dedent('''\
+                                    Superclass DataLoader Usage
+                                -----------------------------------
+                                dataloader = DataLoader()                                           # initialize an object
+                                file_name = dataloader.download('https://www.dropbox.com/...')      # download data from the dropbox link and get the file name 
+                                data = dataloader.prep_data('mnist_color.pkl')                      # load data from file 'mnist_color.pkl' into variable data
+                                data = dataloader.load_data('https://www.dropbox.com/...')          # download data from the dropbox link and then load them into variable data
+                                ''')
+                )
 
-'''
 
 # -------------------------------------- superclass class DataLoader ------------------------------------------
 
 class DataLoader:
+
+    # construct a DataLoader
+    def __init__(self):
+        self.parser_superclass = parser
+
+    # Prints the nicely formatted docstring
+    @property
+    def help(self):
+        self.parser_superclass.print_help()
 
     # use wget to download data from a given link
     # 1st check whether it's already downloaded and if yes don't redownload, just return already existing file name
@@ -35,7 +79,8 @@ class DataLoader:
     # will be extended for subclasses to do the necessary preprocessing steps
     def prep_data(self, file_name):
 
-        # allow_pickle = True since the color dataset threw err 'Cannot load file containing pickled data when allow_pickle=False' due to it being .pkl
+        # allow_pickle = True since the color dataset threw err 'Cannot load file containing 
+        # pickled data when allow_pickle=False' due to it being .pkl
         data = np.load(file_name, allow_pickle = True)
 
         # return data in normal np format so that this parent class DataLoader can be used for labels
@@ -47,51 +92,7 @@ class DataLoader:
         data_file = self.download(url)
         preprocessed_data = self.prep_data(data_file)
         return preprocessed_data
+    
 
-
-# -------------------------------- subclass class Color_DataLoader ----------------------------------------
-
-
-class Color_DataLoader(DataLoader):
-
-    # color has instance variable for version = can have multiple color dataloaders at once for different versions
-    def __init__(self, version = 'm0'):
-
-        # extra instance variable just for this subclass + active debugging of input
-        possible_versions = ['m0', 'm1', 'm2', 'm3', 'm4']
-        assert version in possible_versions, 'Color version you have picked is not valid. It must be one of the following options: {}'.format(possible_versions)
-        self._key = version
-
-    # isolate only 1 of the 5 dicts using the key user chose, default = 'm0' (specified in constructor)
-    def prep_data(self, data_file):
-        data = super().prep_data(data_file)
-        preprocessed_data = data[self._key]
-
-        # return preprocessed_data in the tf format 
-        return tf.data.Dataset.from_tensor_slices(preprocessed_data)
-
-
-# ----------------------------------- subclass class BW_DataLoader ------------------------------------
-
-
-class BW_DataLoader(DataLoader):
-
-    # preprocessing: 1) scaling, 2) vectorization, incl check that input img dimension as expected (28x28)
-    def prep_data(self, data_file):
-        data = super().prep_data(data_file)
-
-        # data should have shape: (number of images, 28, 28) since image dimensions are supposed to be 28x28
-        # the number of images is flexible so we only want to make sure the image dimensions are as expected
-        assert data.shape[1:] == (28, 28), 'You are trying to load data consisting of images with unexpected dimensions. The expected image dimensions: 28x28.'
-
-        # scaling
-        data = data.astype(np.float32)
-        data /= 255
-
-        # vectorization -> each image should be flattened therefore the resulting shape should be (number of images, 28*28)
-        img_dimensions = 28 * 28
-        img_number = data.shape[0]
-        preprocessed_data = data.reshape(img_number, img_dimensions)
-
-        # return preprocessed_data in the tf format 
-        return tf.data.Dataset.from_tensor_slices(preprocessed_data)
+loader = DataLoader()
+loader.help
