@@ -1,9 +1,11 @@
+# import packages
 import os
 import subprocess
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 import numpy as np
 
+# nice docstring
 import argparse
 import textwrap
 parser = argparse.ArgumentParser(prog='Superclass DataLoader',
@@ -51,6 +53,8 @@ class DataLoader:
 
     # construct a DataLoader
     def __init__(self):
+
+        # instance variable for the docstring
         self.parser_superclass = parser
 
     # Prints the nicely formatted docstring
