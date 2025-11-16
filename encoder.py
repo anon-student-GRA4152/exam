@@ -128,6 +128,3 @@ class Encoder(BiCoder):
         eps = tf.random.normal(mu.shape)
         z = mu + eps*std
         return z
-    
-en = Encoder('bw')
-en.help
