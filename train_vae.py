@@ -104,16 +104,16 @@ except:
 
 # -------- VAE construction and training -------------------
 
-# # construct the VAE object
-# vae = VAE(img_type)
+# construct the VAE object
+vae = VAE(img_type)
 
-# # 1. Train the VAE model
-# optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4) 
-# batch_size = 100
+# 1. Train the VAE model
+optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4) 
+batch_size = 100
 
-# for epoch in range(args.epochs):
-#     for batch_x in x_train.batch(batch_size):
-#         vae.train(batch_x, optimizer)
+for epoch in range(args.epochs):
+    for batch_x in x_train.batch(batch_size):
+        vae.train(batch_x, optimizer)
 
 # ---------- downstream tasks based on which ones the user picked ------------
 
