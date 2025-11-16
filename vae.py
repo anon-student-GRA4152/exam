@@ -82,6 +82,10 @@ class VAE(tf.keras.Model):
         # tf.keras.Model constructor so that VAE can inherit from there
         super().__init__()
 
+        # active debugging - input check that type is only 'bw' or 'color'
+        possible_img_types = ['bw', 'color']
+        assert img_type in possible_img_types, 'Image type you have inputted is not valid. It must be one of the following options: {}'.format(possible_img_types)
+
         # construct encoder and decoder objects -> stable neural netoworks over life of VAE instance
         self.encoder = Encoder(img_type, latent_dim , units, activation, input_shape,
                                 kernel_size = kernel_size, strides = strides, filters = filters)
