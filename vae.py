@@ -3,7 +3,8 @@ import tensorflow as tf
 import numpy as np
 
 # import my own modules
-from bicoder import Encoder, Decoder
+from encoder import Encoder
+from decoder import Decoder
 from training_logging import LogTraining
 
 # nice docstring
