@@ -61,7 +61,7 @@ parser.add_argument('--generate_from_posterior', action = 'store_true')
 args = parser.parse_args()
 
 # save the user input arguments in a dictionary in a separte file to have a log of what has been already called
-with open ('commandline_args.txt', 'w') as f:
+with open ('commandline_args.txt', 'a') as f:
     json.dump(args.__dict__, f, indent = 2)
 
 # ----------------- loading data -----------------------
@@ -104,16 +104,16 @@ except:
 
 # -------- VAE construction and training -------------------
 
-# construct the VAE object
-vae = VAE(img_type)
+# # construct the VAE object
+# vae = VAE(img_type)
 
-# 1. Train the VAE model
-optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4) 
-batch_size = 100
+# # 1. Train the VAE model
+# optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4) 
+# batch_size = 100
 
-for epoch in range(args.epochs):
-    for batch_x in x_train.batch(batch_size):
-        vae.train(batch_x, optimizer)
+# for epoch in range(args.epochs):
+#     for batch_x in x_train.batch(batch_size):
+#         vae.train(batch_x, optimizer)
 
 # ---------- downstream tasks based on which ones the user picked ------------
 
