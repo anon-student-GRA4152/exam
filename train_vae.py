@@ -7,6 +7,7 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.manifold import TSNE
+import json
 
 # import my own modules
 from dataloader import DataLoader
@@ -58,6 +59,10 @@ parser.add_argument('--visualize_latent', action = 'store_true')
 parser.add_argument('--generate_from_prior', action = 'store_true')
 parser.add_argument('--generate_from_posterior', action = 'store_true')
 args = parser.parse_args()
+
+# save the user input arguments in a dictionary in a separte file to have a log of what has been already called
+with open ('commandline_args.txt', 'w') as f:
+    json.dump(args.__dict__, f, indent = 2)
 
 # ----------------- loading data -----------------------
 
