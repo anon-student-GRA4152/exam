@@ -1,3 +1,4 @@
+# import packages
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
@@ -6,59 +7,47 @@ from tensorflow.keras import activations
 from tensorflow.keras.models import Sequential
 import numpy as np
 
-'''
+# docstring
+import argparse
+import textwrap
+parser = argparse.ArgumentParser(prog='Superclass BiCoder',
+                                formatter_class=argparse.RawDescriptionHelpFormatter,
+                                description=textwrap.dedent('''\
+                                        Superclass BiCoder
+                                ----------------------------------------
+                                Superclass that sets up the structure my Encoder
+                                and Decoder subclasses can fit into. All the common
+                                neural network parameters (e.g. latent dimension,
+                                activation) that both Encoder and Dceoder will later
+                                use are set up here. However it has no real functionality
+                                without the subclasses extending it.
+                                                            
+                                Methods:
+                                1)  make_neural_network: Constructor method that calls 
+                                    one of the two private methods where the neural
+                                    network is actually build depending on whether
+                                    it should be for black and white or color images. 
+                                    The user can specify this when constructing the 
+                                    object with input parameter img_type. The private
+                                    methods actually building the neural networks are
+                                    abstract here and need to be implemented in the
+                                    subclasses.
+                                    @return the neural_network that was build
+                                                            
+                                2)  call: abstract method, needs to be implemented
+                                    in the subclasses
+                                
+                                '''),
 
-decorator to log the model params instead a separate method?
-
-
-methods both encoder, decoder -> Bicoder methods
-    - _make_neural_network_color -> abstract
-    - _make_neural_network_bw -> abstract
-    - get_network_output -> abstract
-    - make_neural_network -> will call the correct _make_neural_network_bw/color based on img_typ of the object
-    - get_network_configuration -> getter method that will just display params of the neural network we building with the current instance of an object
-
-methods encoder
-    - _make_neural_network_color -> implemented
-    - _make_neural_network_bw -> implemented
-    - get_network_output -> gives mu, log_var values
-    - do the z stuff at the end with the output -> eps = tf.random.normal(mu.shape), z = mu + eps*std (only here this method) -> returns z
-    - get_network_configuration = add the subclass instance params
-    
-
-methods decoder
-    - _make_neural_network_color -> implemented
-    - _make_neural_network_bw -> implemented
-    - get_network_output -> gives mu (no log_var cause we just keep it constant assuming std = 0.75)
-    - get_network_configuration = add the subclass instance params
-
-
-instance variables both encoder, decoder -> Bicoder instance variables
-    - img_type = bw vs color
-    - activation = 'relu'
-    - latent_dim = 20 (BW), 50 (color)
-    -----------------------
-    only color:
-    - kernel_size = 3
-    - strides = 2
-    - filters = 32
-    ---------------------
-    only bw:
-    - units = 400
-
-instance variables encoder
-    - input_shape = (28*28,) BW, (28,28,3) color 
-
-instance variables decoder
-    ------------------ 
-    bw:
-    - output_dim = 28*28
-    ------------------ 
-    color:
-    - target_shape=(4,4,128)
-    - channel_out=3
-
-'''
+                                epilog=textwrap.dedent('''\
+                                        Superclass BiCoder Usage
+                                ------------------------------------------
+                                This is essentially an empty method when it comes to 
+                                real functionality. It serves the purpose of creating
+                                the structure for the subclasses to fit into. But for
+                                usage it really needs to have subclasses implemented.
+                                ''')
+                )
 
 class BiCoder(layers.Layer):
 
@@ -69,14 +58,15 @@ class BiCoder(layers.Layer):
         # layers.Layer constructor so that BiCoder can inherit from there
         super().__init__()
 
-        # active debugging -> input check that type is only 'bw' or 'color'
+        # active debugging - input check that type is only 'bw' or 'color'
         possible_img_types = ['bw', 'color']
         assert img_type in possible_img_types, 'Image type you have inputted is not valid. It must be one of the following options: {}'.format(possible_img_types)
         
         self._img_type = img_type
         self._activation = activation
 
-        # set bw vs color specific defaults + the last 3 params expected only for color so initialize instance varibales only in that case, otherwise disregard
+        # set bw vs color specific defaults (latent dim + units)
+        # + the last 3 input params expected only for color so initialize instance varibales only in color case
         if self._img_type == 'bw':
             self._latent_dim = 20 if latent_dim is None else latent_dim
             self._units = 400 if units is None else units
@@ -88,10 +78,18 @@ class BiCoder(layers.Layer):
             self._strides =  strides
             self._filters = filters
 
-        # one instance of encoder/decoder should have a stable neural network made just once
+        # one instance of encoder/decoder should have a stable neural network made just once so keep track of
         self._neural_network = self.make_neural_network()
 
-    # the neural network should be made depending on type
+        # instance variable for the docstring
+        self.parser_superclass = parser
+
+    # Prints the nicely formatted docstring
+    @property
+    def help(self):
+        self.parser_superclass.print_help()
+
+    # the neural network should be made depending on image type
     def make_neural_network(self):
         if self._img_type == 'bw':
             neural_network = self._make_neural_network_BW()
@@ -113,154 +111,7 @@ class BiCoder(layers.Layer):
     def call(self):
         raise NotImplementedError
 
-    def get_network_configuration(self):
-        pass
 
 
-class Encoder(BiCoder):
-    def __init__(self, img_type, latent_dim = None, units = None, activation = 'relu',  # BiCoder input params
-                input_shape = None,                                                     # extra input param for Encoder
-                *, kernel_size = 3, strides = 2, filters = 32):                         # optional BiCoder input params only for color
-    
-        # def extra encoder instance variable and set default based on img_type
-        if img_type == 'bw':
-            self._input_shape = (28*28,) if input_shape is None else input_shape
-        elif img_type == 'color':
-            self._input_shape = (28,28,3) if input_shape is None else input_shape
-
-        # needs to be after I def the extra variables since superclass constructor calls make_neural_network which needs all the params
-        super().__init__(img_type, latent_dim, units, activation,
-                        kernel_size = kernel_size, strides = strides, filters = filters)
-            
-
-    def _make_neural_network_BW(self):
-        encoder_BW = Sequential(
-                        [ 
-                        layers.InputLayer(input_shape=self._input_shape),
-                        layers.Dense(self._units, activation=self._activation),
-                        layers.Dense(2*self._latent_dim),
-                        ]
-                        )
-        
-        return encoder_BW
-
-    def _make_neural_network_COLOR(self):
-        encoder_COLOR = Sequential(
-                        [
-                        layers.InputLayer(input_shape=self._input_shape),
-                        layers.Conv2D(
-                        filters=self._filters, kernel_size=self._kernel_size, strides=self._strides, activation=self._activation, padding='same'),
-                        layers.Conv2D(
-                        filters=2*self._filters, kernel_size=self._kernel_size, strides=self._strides, activation=self._activation, padding='same'),
-                        layers.Conv2D(
-                        filters=4*self._filters, kernel_size=self._kernel_size, strides=self._strides, activation=self._activation, padding='same'),
-                        layers.Flatten(),
-                        layers.Dense(2*self._latent_dim)
-                        ]
-                        )
-        
-        return encoder_COLOR
-
-    def call(self, x):
-        encoder = self._neural_network
-        out = encoder(x)
-        mu = out[:,:self._latent_dim]
-        log_var = out[:,self._latent_dim:]
-
-        return mu, log_var
-
-    def calculate_z(self, mu, log_var):
-        std = tf.math.exp(0.5*log_var)
-        eps = tf.random.normal(mu.shape)
-        z = mu + eps*std
-        return z
-
-    # add the encoder specific params
-    def get_network_configuration(self):
-        pass
 
         
-class Decoder(BiCoder):
-    def __init__(self, img_type, latent_dim = None, units = None, activation = 'relu',   # BiCoder input params
-                output_dim = 28*28,                                                      # bw extra Decoder param with default
-                target_shape = (4,4,128), channel_out = 3,                               # color extra Decoder params with defaults
-                *, kernel_size = 3, strides = 2, filters = 32):                          # optional BiCoder input params only for color
-        
-        # def instance variable output_dim only img_type == bw param, otherwise disregard
-        if img_type == 'bw':
-            self._output_dim = output_dim
-
-        # def these 2 extra instance variables only for img_type = color so make them instance varibales only in that case
-        elif img_type == 'color':
-            self._target_shape = target_shape
-            self._channel_out = channel_out
-
-        # needs to be after I def the extra variables since superclass constructor calls make_neural_network which needs all the params
-        super().__init__(img_type, latent_dim,  units, activation,
-                        kernel_size = kernel_size, strides = strides, filters = filters)
-
-
-    
-    def _make_neural_network_BW(self):
-        decoder_BW = Sequential(
-                        [
-                        layers.InputLayer(input_shape=self._latent_dim),
-                        layers.Dense(self._units, activation=self._activation),
-                        layers.Dense(self._output_dim),
-                        ]
-                        )
-        
-        return decoder_BW
-
-    def _make_neural_network_COLOR(self):
-
-        # change the units instance varoable that was initialized in superclass as None
-        self._units = np.prod(self._target_shape)
-
-        decoder_COLOR = Sequential(
-                        [
-                        layers.InputLayer(input_shape=(self._latent_dim,)),
-                        layers.Dense(units=self._units, activation=self._activation),
-                        layers.Reshape(target_shape=self._target_shape),
-                        layers.Conv2DTranspose(
-                            filters=self._filters*2, kernel_size=self._kernel_size, strides=self._strides, padding='same',output_padding=0,
-                            activation=self._activation),
-                        layers.Conv2DTranspose(
-                            filters=self._filters, kernel_size=self._kernel_size, strides=self._strides, padding='same',output_padding=1,
-                            activation=self._activation),
-                        layers.Conv2DTranspose(
-                            filters=self._channel_out, kernel_size=self._kernel_size, strides=self._strides, padding='same', output_padding=1),
-                        layers.Activation('linear', dtype='float32'),
-                        ]
-                        )
-        
-        return decoder_COLOR
-
-    # I keep return to be mu an dlog_sigma here as it would be if we were also training std so that later when we call it it's more in line with "standard" (training std)
-    def call(self, x):
-        decoder = self._neural_network
-        mu = decoder(x)
-        std = 0.75  # keep hard coded here since it is part of the assignment and should't rly be changed under any circumstances so no reaosn to allow inputing it or anything
-        log_sigma = np.log(std)
-        return mu, log_sigma
-
-    # sample random x from the posterior here while just get_network_output returns the expectation -> mean (I think that's what Rogelio said?) -> test in VAE downstream tasks
-    def get_x(self, mu, log_sigma):
-        std = np.exp(log_sigma)     # have to change back to sigma not log
-        eps = tf.random.normal(mu.shape)
-        x = mu + eps*std
-        return x
-
-    # add the decoder specific params
-    def get_network_configuration(self):
-        pass
-
-
-
-# bw_encoder = Encoder('bw')
-# mu, log_var = bw_encoder(tf.random.normal((4, 28*28)))
-# z = bw_encoder.calculate_z(mu, log_var)
-
-# bw_decoder = Decoder('bw')
-# mu, log_sigma = bw_decoder(z)
-# print(mu, log_sigma)
